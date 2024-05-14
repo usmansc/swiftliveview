@@ -128,7 +128,7 @@ public final class LiveRouter<ComponentID: Hashable, ClientMessage: ClientMessag
     /// - Returns: component base template
     private func render() async throws -> String {
         if let currentComponent = currentComponent {
-            await try currentComponent.baseTemplate()
+            try await currentComponent.baseTemplate()
         } else {
             throw LiveRouterErrors.noPath
         }
