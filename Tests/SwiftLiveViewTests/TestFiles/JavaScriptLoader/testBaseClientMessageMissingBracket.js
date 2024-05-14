@@ -1,0 +1,2 @@
+class TestBaseClientMessage extends ClientMessageBase { 
+
