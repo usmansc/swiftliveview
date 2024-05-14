@@ -12,7 +12,7 @@ Possible additional configuration optios for your ``SwiftLiveView`` app.
 
 #### Private and public keys
 
-Both key pairs has to be supplied to the ``LiveViewHandler`` as `String`s. You can follow [this](https://kentakodashima.medium.com/generate-pem-keys-with-openssl-on-macos-ecac55791373) article to generate get `PEM` formatted keys. 
+Both key pairs has to be supplied to the ``LiveViewHandler`` as `String`s. You can follow [this](https://kentakodashima.medium.com/generate-pem-keys-with-openssl-on-macos-ecac55791373) article to generate get `PEM` formatted keys. Signer is expecting them to be in `rs256` format.
 
 As general rule of thumb you can use following command to export your public key to `PEM` format. Following code was taken from [this](https://serverfault.com/a/706412) post.
 
