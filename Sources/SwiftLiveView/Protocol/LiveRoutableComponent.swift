@@ -17,16 +17,16 @@ public protocol LiveRoutableComponent: Sendable, Identifiable where ID == String
     /// Provides context of component
     /// which can be any data that we want to manipulate
     /// - Returns: context of page
-    func contextSnapshot() -> Context?
+    func contextSnapshot() async -> Context?
     /// Sets context of page
     /// can change internal state of component
     /// - Parameter context: context to set
-    func loadFromContext(_ context: Context)
+    func loadFromContext(_ context: Context) async
 
     var app: Application { get }
     /// path which this component represents
     var path: String { get }
-    var webSocket: WebSocket? { get set }
+    var webSocket: WebSocket? { get async }
     /// Base template of component
     /// - Returns: template which this component renders first
     func baseTemplate() async throws -> String
@@ -55,12 +55,14 @@ public protocol LiveRoutableComponent: Sendable, Identifiable where ID == String
     ///   - connections: array of webSocket connections
     ///   - content: content to be sent
     func broadCast<Content: Encodable>(to connections: [WebSocket], content: Content)
+    /// Allow to set webSocket
+    func setWebSocket(_ ws: WebSocket?) async
 
 }
 
 extension LiveRoutableComponent where Context == Never {
-    func contextSnapshot() -> Never? { return nil }
-    func loadFromContext(_ context: Never) { return }
+    func contextSnapshot() async -> Never? { return nil }
+    func loadFromContext(_ context: Never) async { return }
 }
 
 public extension LiveRoutableComponent {
