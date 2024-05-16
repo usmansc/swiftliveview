@@ -26,7 +26,7 @@ public protocol LiveRoutableComponent: Sendable, Identifiable where ID == String
     var app: Application { get }
     /// path which this component represents
     var path: String { get }
-    var webSocket: WebSocket? { get }
+    var webSocket: WebSocket? { get async }
     /// Base template of component
     /// - Returns: template which this component renders first
     func baseTemplate() async throws -> String
