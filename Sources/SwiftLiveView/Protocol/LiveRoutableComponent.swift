@@ -26,7 +26,7 @@ public protocol LiveRoutableComponent: Sendable, Identifiable where ID == String
     var app: Application { get }
     /// path which this component represents
     var path: String { get }
-    var webSocket: WebSocket? { get set }
+    var webSocket: WebSocket? { get }
     /// Base template of component
     /// - Returns: template which this component renders first
     func baseTemplate() async throws -> String
@@ -55,6 +55,8 @@ public protocol LiveRoutableComponent: Sendable, Identifiable where ID == String
     ///   - connections: array of webSocket connections
     ///   - content: content to be sent
     func broadCast<Content: Encodable>(to connections: [WebSocket], content: Content)
+    /// Allow to set webSocket
+    func webSocket(_ ws: WebSocket?)
 
 }
 
