@@ -155,7 +155,7 @@ public final actor LiveViewHandler<ClientMessage: ClientMessageDecodable> {
             assignRouter(token: token, webSocket: ws)
         }
         for index in 0..<(routerConnection[token]?.paths.count ?? 0) {
-            routerConnection[token]?.paths[index].webSocket(ws)
+            routerConnection[token]?.paths[index].webSocket = ws
         }
         routerConnection[token]?.webSocket = ws
         try await routerConnection[token]?.changeURL(req, ws, to: initialURL, for: token)
