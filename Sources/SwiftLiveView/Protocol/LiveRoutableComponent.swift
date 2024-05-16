@@ -12,7 +12,7 @@ import Foundation
 import Vapor
 
 /// Represents component - website page
-public protocol LiveRoutableComponent: Identifiable where ID == String {
+public protocol LiveRoutableComponent: Sendable, Identifiable where ID == String {
     associatedtype Context: Codable
     /// Provides context of component
     /// which can be any data that we want to manipulate

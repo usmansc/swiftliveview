@@ -13,19 +13,19 @@ import JWT
 
 /// Completion that is fired after certain
 /// time interval of webSocket connection inactivity
-public enum WebSocketCloseStrategy {
+public enum WebSocketCloseStrategy: Sendable {
     case deleteConnection(after: TimeInterval)
-    case moveToSwap(after: TimeInterval, completion: (Any?, Any?) -> Void)
+    case moveToSwap(after: TimeInterval, completion: @Sendable (Any?, Any?) -> Void)
 }
 
 /// Configuartion for ``LiveViewHandler``
-public struct LiveViewHandlerConfiguration<ClientMessage: ClientMessageDecodable> {
+public struct LiveViewHandlerConfiguration<ClientMessage: ClientMessageDecodable>: Sendable {
     let app: Application
     let router: LiveRouter<String, ClientMessage>
     let privateKeySecret: String
     let publicKeySecret: String
-    let componentFactory: () -> [(any LiveRoutableComponent)]
-    let onConnectionCreated: ((LiveRouter<String, ClientMessage>?) -> Void)?
+    let componentFactory: @Sendable () -> [(any LiveRoutableComponent)]
+    let onConnectionCreated: (@Sendable (LiveRouter<String, ClientMessage>?) -> Void)?
     let onCloseStrategy: WebSocketCloseStrategy
 
     /// Creates configuration for ``LiveViewHandler``
@@ -42,8 +42,8 @@ public struct LiveViewHandlerConfiguration<ClientMessage: ClientMessageDecodable
                 privateKeySecret: String,
                 publicKeySecret: String,
                 onCloseStrategy: WebSocketCloseStrategy,
-                componentFactory: @escaping () -> [(any LiveRoutableComponent)],
-                onConnectionCreated: ((LiveRouter<String, ClientMessage>?) -> Void)? = nil) {
+                componentFactory: @Sendable @escaping () -> [(any LiveRoutableComponent)],
+                onConnectionCreated: (@Sendable (LiveRouter<String, ClientMessage>?) -> Void)? = nil) {
         self.app = app
         self.router = router
         self.privateKeySecret = privateKeySecret
@@ -80,6 +80,12 @@ public final actor LiveViewHandler<ClientMessage: ClientMessageDecodable> {
         }
     }
 
+    private func removeConnection(_ ws: WebSocket) {
+        if let index = self.connections.firstIndex(where: { $0 === ws }) {
+            self.connections.remove(at: index)
+        }
+    }
+
     /// Provides caller with all active webSocket connections
     /// for handler
     /// - Returns: array of webSocket connections
@@ -91,10 +97,12 @@ public final actor LiveViewHandler<ClientMessage: ClientMessageDecodable> {
     /// - Parameters:
     ///   - req: request
     ///   - ws: webSocket
+
+    @Sendable
     public func handleWebsocket(_ req: Request, _ ws: WebSocket) async {
         _ = ws.onClose.always { _ in
-            if let index = self.connections.firstIndex(where: { $0 === ws }) {
-                self.connections.remove(at: index)
+            Task {
+                await self.removeConnection(ws)
             }
         }
         do {

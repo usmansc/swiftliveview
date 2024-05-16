@@ -17,17 +17,63 @@ public enum LiveRouterErrors: Error {
     case noInvalidPathTemplateSpecified
 }
 
+fileprivate final class ProtectedValue<T: Sendable>: @unchecked Sendable {
+    private let queue = DispatchQueue(label: "LiveRouterValue")
+    private var value: T
+
+    init(_ value: T) {
+        self.value = value
+    }
+
+    func withValue<U>(do block: (inout T) throws -> U) rethrows -> U {
+        return try queue.sync {
+            try block(&self.value)
+        }
+    }
+}
+
 /// Router that manages components for client
-public final class LiveRouter<ComponentID: Hashable, ClientMessage: ClientMessageDecodable> {
+public final class LiveRouter<ComponentID: Hashable, ClientMessage: ClientMessageDecodable>: @unchecked Sendable {
+    private struct State: Sendable {
+        var webSocket: WebSocket?
+        var currentComponent: (any LiveRoutableComponent)?
+        var paths: [(any LiveRoutableComponent)]
+        var task: Task<Void, Never>?
+    }
     let id: UUID
-
-    internal var webSocket: WebSocket?
-    internal var currentComponent: (any LiveRoutableComponent)?
-    internal var paths: [(any LiveRoutableComponent)]
-
+    private var state: ProtectedValue<State>
+    var currentComponent: (any LiveRoutableComponent)? {
+        get {
+            state.withValue(do: \.currentComponent)
+        }
+        set {
+            state.withValue { router in
+                router.currentComponent = newValue
+            }
+        }
+    }
+    var paths: [(any LiveRoutableComponent)] {
+        get {
+            state.withValue(do: \.paths)
+        }
+        set {
+            state.withValue { router in
+                router.paths = newValue
+            }
+        }
+    }
+    var webSocket: WebSocket? {
+        get {
+            state.withValue(do: \.webSocket)
+        }
+        set {
+            state.withValue { router in
+                router.webSocket = newValue
+            }
+        }
+    }
     private let _handleMessage: (LiveRouter, Request, ClientMessage, WebSocket) async -> Void
     private let invalidPathTemplate: (() -> String)?
-    private var task: Task<Void, Never>?
 
     /// Creates ``LiveRouter``
     /// - Parameters:
@@ -37,8 +83,8 @@ public final class LiveRouter<ComponentID: Hashable, ClientMessage: ClientMessag
     public init(invalidPathTemplate: (() -> String)? = nil,
                 handleMessage: @escaping (LiveRouter, Request, ClientMessage, WebSocket) async -> Void) {
         self.id = .init()
-        self.paths = []
         self.invalidPathTemplate = invalidPathTemplate
+        self.state = ProtectedValue(State(webSocket: nil, currentComponent: nil, paths: [], task: nil))
         _handleMessage = handleMessage
     }
 
@@ -90,15 +136,18 @@ public final class LiveRouter<ComponentID: Hashable, ClientMessage: ClientMessag
                                 request: Request,
                                 inactiveInterval: TimeInterval,
                                 onCloseStrategy: @escaping (Any?, Any?) -> Void) async {
-        task?.cancel()
-        task = Task {
-            do {
-                try await Task.sleep(nanoseconds: UInt64(inactiveInterval * 1_000_000_000))
-                onCloseStrategy(message, currentComponent)
-            } catch {
-                print("Failed to perform onCloseStrategy due to tak failure or cancellation")
+        state.withValue { router in
+            router.task?.cancel()
+            router.task = Task {
+                do {
+                    try await Task.sleep(nanoseconds: UInt64(inactiveInterval * 1_000_000_000))
+                    onCloseStrategy(message, currentComponent)
+                } catch {
+                    print("Failed to perform onCloseStrategy due to tak failure or cancellation")
+                }
             }
         }
+
         await _handleMessage(self, request, message, webSocket)
     }
 
@@ -140,20 +189,21 @@ public final class LiveRouter<ComponentID: Hashable, ClientMessage: ClientMessag
     private func setActive(url: String) -> Bool {
         let queryParameters = parseQueryParameters(from: url)
         let id = self.id
-        self.currentComponent?.cleanUp(for: id) // Run to clean any mess from the component
-        if let currentComponent,
-           let indexOfActiveComponent = paths.firstIndex(where: { component in
-               component.id == currentComponent.id
-           }) {
-            paths[indexOfActiveComponent] = currentComponent
+        if let currentComponent {
+            currentComponent.cleanUp(for: id) // Run to clean any mess from the component
+            if let indexOfActiveComponent = paths.firstIndex(where: { component in
+                component.id == currentComponent.id
+            }) {
+                paths[indexOfActiveComponent] = currentComponent
+            }
         }
         guard let url = queryParameters.1 else { return false }
         guard let component = paths.first(where: { component in
             component.path == url
         }) else { return false }
 
+        component.setQueryParameters(queryParameters.0 ?? [:], for: id)
         currentComponent = component
-        self.currentComponent?.setQueryParameters(queryParameters.0 ?? [:], for: id)
         return true
     }
 
